@@ -1,0 +1,10 @@
+# MicroPython firmware images -- 1.7MB binaries, fetched not authored.
+# See README for the download URL.
+firmware/*.bin
+
+# Anything holding credentials for the later BLE/WiFi work.
+secrets.py
+
+__pycache__/
+*.pyc
+.DS_Store
