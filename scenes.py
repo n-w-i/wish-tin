@@ -169,3 +169,55 @@ def blow_out(oled, sparks):
                 oled.pixel(x, y, 1)
         oled.show()
         time.sleep_ms(45)
+
+class Sky:
+    """The idle screen: a sparse sky that slowly rearranges itself. Each star
+    has a lifetime and moves elsewhere when it expires, so nothing sits lit in
+    one place long enough to mark the panel. About ten pixels of 8192."""
+
+    def __init__(self, n=10):
+        self.p = [self._new() for _ in range(n)]
+
+    def _new(self):
+        return [random.getrandbits(7), random.getrandbits(6),
+                20 + random.getrandbits(6)]
+
+    def step(self, oled):
+        oled.fill(0)
+        for s in self.p:
+            s[2] -= 1
+            if s[2] <= 0:
+                s[:] = self._new()
+            oled.pixel(s[0], s[1], 1)
+        oled.show()
+
+
+def starfield(oled, n=90, rise=40, hold=36, setting=64):
+    """Act IV. A sea of stars arrives, breathes, and goes out. Ends on an
+    empty screen, which the idle Sky then quietly repopulates."""
+    xs = bytearray(n)
+    ys = bytearray(n)
+    ph = bytearray(n)
+    for i in range(n):
+        xs[i] = random.getrandbits(7)
+        ys[i] = random.getrandbits(6)
+        ph[i] = random.getrandbits(4)
+
+    total = rise + hold + setting
+    for t in range(total):
+        if t < rise:
+            k = (n * (t + 1)) // rise
+        elif t < rise + hold:
+            k = n
+        else:
+            k = (n * (total - t)) // setting
+        oled.fill(0)
+        for i in range(k):
+            # a quarter of them breathe, so the field is never quite still
+            if ph[i] < 4 and ((t >> 3) + ph[i]) & 3 == 0:
+                continue
+            oled.pixel(xs[i], ys[i], 1)
+        oled.show()
+        time.sleep_ms(45)
+    oled.fill(0)
+    oled.show()

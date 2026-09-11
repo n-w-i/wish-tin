@@ -58,19 +58,16 @@ class Button:
 
 
 def wait_for(btn, oled):
-    """Idle. A single pixel breathing near the bottom, so the OLED isn't
-    holding a bright static image for hours."""
-    t = 0
+    """Idle: the same sky as Act IV, thinned almost to nothing. The tin goes
+    quiet by emptying out rather than by switching to something else."""
+    sky = scenes.Sky()
     oled.contrast(255)
+    t = 0
     while True:
         if btn.pressed():
             return
-        if t % 20 == 0:
-            oled.fill(0)
-            on = (t // 20) % 2 == 0
-            if on:
-                oled.text("o", 60, 52, 1)
-            oled.show()
+        if t % 5 == 0:
+            sky.step(oled)
         time.sleep_ms(25)
         t += 1
 
@@ -117,6 +114,9 @@ def ceremony(oled, btn):
     scenes.fade_in(oled)
     time.sleep_ms(CLOSING_HOLD_MS)
     scenes.fade_out(oled)
+
+    # Act IV -- and there they are.
+    scenes.starfield(oled)
 
 
 def main():
