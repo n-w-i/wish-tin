@@ -13,6 +13,7 @@ OPENING = (
 )
 
 CLOSING = (
+    "Out there\nwith the stars.",
     "Sent.\n\nGo and be\nunreasonable\nabout it.",
     "The tin will\nkeep this one.\n\nYou may forget\nit now.",
     "Filed with the\nothers.\n\nThey are all\nstill pending.",
