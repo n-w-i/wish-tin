@@ -28,7 +28,7 @@ PIN_BUTTON, PIN_BUTTON_GND = 2, 1  # D1 + D0   (left side, 2nd and 1st down)
 # second press entirely.
 
 WISH_TIMEOUT_MS = 150000        # if you never press "blown", end kindly anyway
-QUOTE_HOLD_MS = 9000            # Act I, how long the opening line stays up
+QUOTE_HOLD_MS = 7000            # Act I, hold AFTER the words finish arriving
 CLOSING_HOLD_MS = 8000          # Act III, same for the closing line
 MIN_WISH_MS = 2500              # you cannot blow out a candle you just lit
 LIGHT_TIMEOUT_MS = 180000       # if the candle never gets lit, quietly give up
@@ -76,14 +76,15 @@ def ceremony(oled, btn):
     sparks = scenes.Sparks()
 
     # Act I -- the quote.
-    scenes.block(oled, quotes.opening(), show=False)
-    scenes.fade_in(oled)
+    scenes.reveal(oled, quotes.opening())
     time.sleep_ms(QUOTE_HOLD_MS)
     scenes.fade_out(oled)
 
     # Act II -- light it, wish, blow it out.
-    scenes.block(oled, "light it", show=False)
-    scenes.fade_in(oled)
+    scenes.reveal(oled, "light it")
+    time.sleep_ms(500)
+    scenes.candle(oled)                # unlit: a wick, waiting
+    oled.show()
     btn.pressed()                      # swallow the edge that began Act I
     waited = time.ticks_ms()
     while not btn.pressed():           # hold here until the candle is lit

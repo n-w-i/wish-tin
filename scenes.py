@@ -1,6 +1,7 @@
 # scenes.py -- drawing and animation for a 128x64 mono OLED.
 # The built-in font is 8x8, so: 16 columns, 8 rows. Everything is built
 # around that grid.
+import framebuf
 import random
 import time
 
@@ -72,6 +73,44 @@ def _dissolve(oled, levels, delay):
     return orig
 
 
+def reveal(oled, text, per_word=380):
+    """Words arrive one at a time, each in its final position. Nothing
+    reflows, so it reads as writing rather than redrawing -- and it is
+    obviously moving on its own, so nobody reaches for the button."""
+    lines = wrap(text)[:ROWS]
+    y0 = (H - len(lines) * 8) // 2
+    oled.fill(0)
+    oled.show()
+    for li, ln in enumerate(lines):
+        x0 = max((W - len(ln) * 8) // 2, 0)
+        col = 0
+        for w in ln.split(" "):
+            if w:
+                oled.text(w, x0 + col * 8, y0 + li * 8, 1)
+                oled.show()
+                time.sleep_ms(per_word)
+            col += len(w) + 1
+
+
+# One page-aligned row of text, drawn through the dither so it can dissolve
+# on its own without disturbing the rest of the frame.
+_TXT = bytearray(W)
+_TXTFB = framebuf.FrameBuffer(_TXT, W, 8, framebuf.MONO_VLSB)
+
+
+def dither_text(oled, s, page, level):
+    if level <= 0:
+        return
+    for i in range(W):
+        _TXT[i] = 0
+    _TXTFB.text(s, max((W - len(s) * 8) // 2, 0), 0, 1)
+    m = _MASKS[level]
+    buf = oled.buffer
+    off = page * W
+    for i in range(W):
+        buf[off + i] |= _TXT[i] & m[i & 3]
+
+
 def fade_in(oled, delay=38):
     """Dissolve up to whatever block() left in the buffer."""
     orig = _dissolve(oled, range(17), delay)
@@ -87,6 +126,15 @@ def fade_out(oled, delay=38):
     oled.show()
 
 
+def candle(oled, cx=W // 2, base=54, lit=False, t=0):
+    """The candle itself. Drawn unlit on the light-it screen and lit during
+    the wish, at the same coordinates, so one becomes the other."""
+    oled.hline(cx - 5, base + 4, 11, 1)     # top of the candle
+    oled.vline(cx, base + 1, 3, 1)          # wick
+    if lit:
+        _flame(oled, cx, base, t)
+
+
 def _flame(oled, cx, base, t):
     """A teardrop that never sits still. Height and lean wander per frame."""
     h = 14 + (t % 3) + random.getrandbits(2)
@@ -99,8 +147,7 @@ def _flame(oled, cx, base, t):
             half = 0
         x = cx + int(lean * f * 2)
         oled.hline(x - half, y, half * 2 + 1, 1)
-    # wick
-    oled.vline(cx, base + 1, 3, 1)
+
 
 
 class Sparks:
@@ -141,14 +188,19 @@ class Sparks:
             s[3] = 14 + random.getrandbits(4)
 
 
+PROMPT_HOLD = 70                          # frames, ~3.9s at 55ms
+
+
 def wishing(oled, sparks, t, prompt="make a wish"):
-    """Act II: the flame is lit and burning. One frame."""
+    """Act II: the flame is lit and burning. One frame.
+    The prompt holds, then dissolves away and does not return -- after a few
+    seconds you are already wishing and the instruction is in the way."""
     oled.fill(0)
-    if (t // 12) % 2 == 0:                # prompt breathes slowly
-        x = (W - len(prompt) * 8) // 2
-        oled.text(prompt, max(x, 0), 4, 1)
     sparks.step(oled)
-    _flame(oled, W // 2, 54, t)
+    candle(oled, lit=True, t=t)
+    if t < PROMPT_HOLD + 17:
+        dither_text(oled, prompt, 1,
+                    16 if t < PROMPT_HOLD else 16 - (t - PROMPT_HOLD))
     oled.show()
 
 
