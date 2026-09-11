@@ -141,6 +141,17 @@ class Sparks:
             s[3] = 14 + random.getrandbits(4)
 
 
+def prompt(oled, title, hint, t):
+    """A title with a hint blinking underneath, for the waiting screens."""
+    oled.fill(0)
+    x = (W - len(title) * 8) // 2
+    oled.text(title, max(x, 0), 24, 1)
+    if (t // 14) % 2 == 0:
+        x = (W - len(hint) * 8) // 2
+        oled.text(hint, max(x, 0), 44, 1)
+    oled.show()
+
+
 def wishing(oled, sparks, t, prompt="make a wish"):
     """Act II: the flame is lit and burning. One frame."""
     oled.fill(0)

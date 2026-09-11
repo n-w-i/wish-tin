@@ -13,11 +13,16 @@ wired, soldered, and run through all three acts on the real panel.
 A tin holding a lit tea light and a small OLED screen. You press a button and
 it runs a three-act ceremony:
 
-1. **Before** — a quote fades in and holds.
-2. **During** — `make a wish`, then a flickering flame with embers drifting up.
-   You make your wish and blow the real candle out, then press the second button.
-   The on-screen flame dies, embers scatter, smoke climbs and thins.
-3. **After** — a closing line fades in.
+1. **Before** — a quote fades in and holds. One of seven, at random.
+2. **Light it** — the tin waits, blinking `press when lit`. Nothing moves until
+   you confirm the real candle is burning.
+3. **During** — `make a wish`, then a flickering flame with embers drifting up.
+   You make your wish, blow the real candle out, and press again. The on-screen
+   flame dies, embers scatter, smoke climbs and thins.
+4. **After** — `It's out there with the stars.` Always the same line: an ending
+   that varies is a random draw, an ending that repeats is a ritual.
+
+Three presses total, all on the one button: **begin**, **lit**, **blown out**.
 
 **The wish itself is never shown.** That was the requirement from the start, and
 it's why the earlier wish-*generator* code was deleted rather than kept around.

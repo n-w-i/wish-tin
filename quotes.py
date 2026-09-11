@@ -12,13 +12,13 @@ OPENING = (
     "The smoke knows\nthe way. It has\ndone this\nbefore.",
 )
 
-CLOSING = (
-    "It's out there\nwith the stars.",
-    "Sent.\n\nGo and be\nunreasonable\nabout it.",
-    "The tin will\nkeep this one.\n\nYou may forget\nit now.",
-    "Filed with the\nothers.\n\nThey are all\nstill pending.",
-    "Noted, and\nnot repeated\nto anyone.",
-    "Well asked.\n\nNow put it down\nand go to bed.",
+# The closing line never changes. An ending that varies is a random draw;
+# an ending that is always the same is a ritual.
+CLOSING = "It's out there\nwith the stars."
+
+# Retired closings, kept in case the dry register is ever wanted back.
+_RETIRED = (
+    "Sent.\\n\\nGo and be\\nunreasonable\\nabout it.",
 )
 
 
@@ -27,4 +27,4 @@ def opening():
 
 
 def closing():
-    return random.choice(CLOSING)
+    return CLOSING

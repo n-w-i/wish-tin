@@ -84,10 +84,16 @@ def ceremony(oled, btn):
     scenes.fade_out(oled)
 
     # Act II -- light it, wish, blow it out.
-    scenes.block(oled, "light it", hold=1800)
+    btn.pressed()                      # swallow the edge that began Act I
+    t = 0
+    while not btn.pressed():           # hold here until the candle is lit
+        scenes.prompt(oled, "light it", "press when lit", t)
+        time.sleep_ms(45)
+        t += 1
+
     t = 0
     start = time.ticks_ms()
-    btn.pressed()                      # swallow any edge left over from Act I
+    btn.pressed()                      # swallow the "it is lit" press
     while True:
         held = time.ticks_diff(time.ticks_ms(), start)
         if held > MIN_WISH_MS and btn.pressed():
