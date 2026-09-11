@@ -1,8 +1,11 @@
 # main.py -- the wish tin.
 #
 # Board:   Seeed XIAO ESP32S3   (swap the pin block below for XIAO RP2040)
-# Screen:  0.96" SSD1306 128x64 OLED, I2C
-# Input:   two 6mm tactile buttons to GND
+# Screen:  0.96" SSD1306 128x64 OLED, I2C, stood upright at the back of the tin
+# Input:   one 12mm tactile button -- press to begin, press again once the
+#          real candle is out. The sequence is strictly ordered, so a single
+#          button reading as "advance" beats two you'd have to tell apart in
+#          the dark.
 # Power:   USB-C from a power bank. No battery in the tin: there is a flame.
 import time
 from machine import Pin, I2C, SoftI2C
@@ -12,20 +15,31 @@ import scenes
 from ssd1306 import SSD1306_I2C
 
 # ---- pins ----------------------------------------------------------------
-# XIAO ESP32S3:  D4 = GPIO5 (SDA), D5 = GPIO6 (SCL), D1 = GPIO2, D2 = GPIO3
+# XIAO ESP32S3:  D4 = GPIO5 (SDA), D5 = GPIO6 (SCL)
 PIN_SDA, PIN_SCL = 5, 6
-PIN_BEGIN, PIN_BLOWN = 2, 3
-# XIAO RP2040:   PIN_SDA, PIN_SCL = 6, 7 ; PIN_BEGIN, PIN_BLOWN = 27, 28
+
+# Each button gets its own pair of adjacent pins: one input with a pull-up,
+# and a neighbour driven LOW as a local ground. The board only breaks out one
+# real GND and the OLED has it. A press draws ~70uA through the 45k pull-up,
+# against a 40mA sink limit -- nothing to worry about.
+# GPIO3 is avoided deliberately: it's an ESP32-S3 strapping pin.
+PIN_BUTTON, PIN_BUTTON_GND = 2, 1  # D1 + D0   (left side, 2nd and 1st down)
+# D8/D9 left free for the LED light sensor that will one day replace the
+# second press entirely.
 
 WISH_TIMEOUT_MS = 150000        # if you never press "blown", end kindly anyway
 QUOTE_HOLD_MS = 9000            # Act I, how long the opening line stays up
 CLOSING_HOLD_MS = 8000          # Act III, same for the closing line
+MIN_WISH_MS = 2500              # you cannot blow out a candle you just lit
 
 
 class Button:
-    """Active-low, internal pull-up, 40ms debounce, rising-edge trigger."""
+    """Active-low, internal pull-up, 40ms debounce, rising-edge trigger.
+    gnd_gpio is a neighbouring pin held LOW to act as this button's ground."""
 
-    def __init__(self, gpio):
+    def __init__(self, gpio, gnd_gpio):
+        self.gnd = Pin(gnd_gpio, Pin.OUT)
+        self.gnd.value(0)
         self.pin = Pin(gpio, Pin.IN, Pin.PULL_UP)
         self.last = 1
         self.t = 0
@@ -60,7 +74,7 @@ def wait_for(btn, oled):
         t += 1
 
 
-def ceremony(oled, begin, blown):
+def ceremony(oled, btn):
     sparks = scenes.Sparks()
 
     # Act I -- the quote.
@@ -73,10 +87,12 @@ def ceremony(oled, begin, blown):
     scenes.block(oled, "light it", hold=1800)
     t = 0
     start = time.ticks_ms()
+    btn.pressed()                      # swallow any edge left over from Act I
     while True:
-        if blown.pressed():
+        held = time.ticks_diff(time.ticks_ms(), start)
+        if held > MIN_WISH_MS and btn.pressed():
             break
-        if time.ticks_diff(time.ticks_ms(), start) > WISH_TIMEOUT_MS:
+        if held > WISH_TIMEOUT_MS:
             break
         scenes.wishing(oled, sparks, t)
         time.sleep_ms(55)
@@ -104,12 +120,11 @@ def main():
         raise RuntimeError("no OLED on I2C -- check SDA/SCL and 3V3")
 
     oled = SSD1306_I2C(scenes.W, scenes.H, i2c, addr=found[0])
-    begin = Button(PIN_BEGIN)
-    blown = Button(PIN_BLOWN)
+    btn = Button(PIN_BUTTON, PIN_BUTTON_GND)
 
     while True:
-        wait_for(begin, oled)
-        ceremony(oled, begin, blown)
+        wait_for(btn, oled)
+        ceremony(oled, btn)
 
 
 main()

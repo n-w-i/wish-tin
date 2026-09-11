@@ -1,21 +1,23 @@
-# Step 2: are the buttons wired correctly?
-#   Button A: one leg -> D1 (GPIO2),  other leg -> GND
-#   Button B: one leg -> D2 (GPIO3),  other leg -> GND
-# No resistors. 6mm tactile buttons have FOUR legs: the pairs across the
-# short axis are already connected inside, so use one leg from each side.
+# Step 6: is the button wired correctly?
+#   One leg -> D1 (GPIO2),  diagonal leg -> D0 (GPIO1)
+# Nothing goes to the real GND pin -- that belongs to the OLED. D0 is driven
+# LOW in software and acts as the button's ground.
 import time
 from machine import Pin
 
-a = Pin(2, Pin.IN, Pin.PULL_UP)
-b = Pin(3, Pin.IN, Pin.PULL_UP)
+Pin(1, Pin.OUT).value(0)          # local ground
+btn = Pin(2, Pin.IN, Pin.PULL_UP)
 
-print("press each button -- ctrl-C to stop")
-print("(both should read 1 when untouched, 0 when held)")
+print("press the button -- ctrl-C to stop")
+print("reads 1 untouched, 0 when held")
+print("if it reads 0 constantly, both wires are on the same side of the switch")
 last = None
+n = 0
 while True:
-    now = (a.value(), b.value())
-    if now != last:
-        print("  A=%d  B=%d  %s" % (now[0], now[1],
-              "<- A pressed" if now[0] == 0 else "<- B pressed" if now[1] == 0 else ""))
-        last = now
-    time.sleep_ms(30)
+    v = btn.value()
+    if v != last:
+        if v == 0:
+            n += 1
+            print("  PRESS %d" % n)
+        last = v
+    time.sleep_ms(20)
