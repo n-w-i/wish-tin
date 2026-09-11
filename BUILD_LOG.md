@@ -14,8 +14,9 @@ A tin holding a lit tea light and a small OLED screen. You press a button and
 it runs a three-act ceremony:
 
 1. **Before** — a quote fades in and holds. One of seven, at random.
-2. **Light it** — the tin waits, blinking `press when lit`. Nothing moves until
-   you confirm the real candle is burning.
+2. **Light it** — `light it` dissolves in and simply waits. Nothing moves until
+   you press to say the real candle is burning, and the words dissolve away as
+   you do. No instructions on screen; the tin trusts you to know.
 3. **During** — `make a wish`, then a flickering flame with embers drifting up.
    You make your wish, blow the real candle out, and press again. The on-screen
    flame dies, embers scatter, smoke climbs and thins.
