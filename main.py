@@ -120,23 +120,43 @@ def ceremony(oled, btn):
     scenes.starfield(oled)
 
 
-def main():
+def _open_display():
     try:
         i2c = I2C(0, sda=Pin(PIN_SDA), scl=Pin(PIN_SCL), freq=400000)
     except Exception:
         i2c = SoftI2C(sda=Pin(PIN_SDA), scl=Pin(PIN_SCL), freq=400000)
-
     found = i2c.scan()
     print("i2c devices:", [hex(a) for a in found])
     if not found:
         raise RuntimeError("no OLED on I2C -- check SDA/SCL and 3V3")
+    return SSD1306_I2C(scenes.W, scenes.H, i2c, addr=found[0])
 
-    oled = SSD1306_I2C(scenes.W, scenes.H, i2c, addr=found[0])
-    btn = Button(PIN_BUTTON, PIN_BUTTON_GND)
 
+def _log(e):
+    try:
+        import sys
+        with open("crash.txt", "a") as f:
+            sys.print_exception(e, f)
+    except Exception:
+        pass
+
+
+def main():
+    """Never gives up. A blip on the I2C bus -- a jumper that shifts, noise
+    from handling the tin -- raises OSError in the middle of a draw. Left
+    uncaught that kills the program and leaves the last frame sitting on the
+    screen, which looks exactly like a freeze. Rebuilding the display and
+    carrying on turns it into a blink instead of a dead tin."""
     while True:
-        wait_for(btn, oled)
-        ceremony(oled, btn)
+        try:
+            oled = _open_display()
+            btn = Button(PIN_BUTTON, PIN_BUTTON_GND)
+            while True:
+                wait_for(btn, oled)
+                ceremony(oled, btn)
+        except Exception as e:
+            _log(e)
+            time.sleep_ms(400)
 
 
 main()
