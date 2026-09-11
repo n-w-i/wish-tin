@@ -170,6 +170,41 @@ def blow_out(oled, sparks):
         oled.show()
         time.sleep_ms(45)
 
+class Meteor:
+    """A streak crossing the sky. Mostly it isn't there -- something you
+    catch every few seconds isn't a shooting star, it's traffic."""
+
+    def __init__(self):
+        self.life = 0
+
+    def start(self):
+        self.x = random.getrandbits(7)
+        self.y = random.getrandbits(4)
+        self.vx = 2 + random.getrandbits(1)
+        if random.getrandbits(1):
+            self.vx = -self.vx
+        self.vy = 1
+        self.life = 18 + random.getrandbits(4)
+
+    def step(self, oled):
+        if self.life <= 0:
+            return
+        self.x += self.vx
+        self.y += self.vy
+        self.life -= 1
+        if not (0 <= self.x < W) or self.y >= H:
+            self.life = 0
+            return
+        # head, then a tail that breaks up behind it
+        for i in range(6):
+            if i > 2 and (i + self.life) & 1:
+                continue
+            x = self.x - self.vx * i
+            y = self.y - self.vy * i
+            if 0 <= x < W and 0 <= y < H:
+                oled.pixel(x, y, 1)
+
+
 class Sky:
     """The idle screen: a sparse sky that slowly rearranges itself. Each star
     has a lifetime and moves elsewhere when it expires, so nothing sits lit in
@@ -177,6 +212,7 @@ class Sky:
 
     def __init__(self, n=10):
         self.p = [self._new() for _ in range(n)]
+        self.meteor = Meteor()
 
     def _new(self):
         return [random.getrandbits(7), random.getrandbits(6),
@@ -189,6 +225,9 @@ class Sky:
             if s[2] <= 0:
                 s[:] = self._new()
             oled.pixel(s[0], s[1], 1)
+        if self.meteor.life <= 0 and random.getrandbits(8) == 0:
+            self.meteor.start()
+        self.meteor.step(oled)
         oled.show()
 
 
@@ -203,8 +242,14 @@ def starfield(oled, n=90, rise=40, hold=36, setting=64):
         ys[i] = random.getrandbits(6)
         ph[i] = random.getrandbits(4)
 
+    met = Meteor()
+    when = rise + (random.getrandbits(6) % hold)   # one, but never on cue
+
     total = rise + hold + setting
     for t in range(total):
+        if t == when or (t > rise and met.life <= 0
+                         and random.getrandbits(7) == 0):
+            met.start()
         if t < rise:
             k = (n * (t + 1)) // rise
         elif t < rise + hold:
@@ -217,6 +262,7 @@ def starfield(oled, n=90, rise=40, hold=36, setting=64):
             if ph[i] < 4 and ((t >> 3) + ph[i]) & 3 == 0:
                 continue
             oled.pixel(xs[i], ys[i], 1)
+        met.step(oled)
         oled.show()
         time.sleep_ms(45)
     oled.fill(0)
