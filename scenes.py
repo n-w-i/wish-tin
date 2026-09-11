@@ -203,6 +203,8 @@ class Meteor:
             y = self.y - self.vy * i
             if 0 <= x < W and 0 <= y < H:
                 oled.pixel(x, y, 1)
+                if i == 0 and y > 0:
+                    oled.pixel(x, y - 1, 1)      # head reads brighter
 
 
 class Sky:
@@ -225,13 +227,13 @@ class Sky:
             if s[2] <= 0:
                 s[:] = self._new()
             oled.pixel(s[0], s[1], 1)
-        if self.meteor.life <= 0 and random.getrandbits(8) == 0:
+        if self.meteor.life <= 0 and random.getrandbits(7) == 0:
             self.meteor.start()
         self.meteor.step(oled)
         oled.show()
 
 
-def starfield(oled, n=90, rise=40, hold=36, setting=64):
+def starfield(oled, n=70, rise=40, hold=36, setting=64):
     """Act IV. A sea of stars arrives, breathes, and goes out. Ends on an
     empty screen, which the idle Sky then quietly repopulates."""
     xs = bytearray(n)
@@ -248,7 +250,7 @@ def starfield(oled, n=90, rise=40, hold=36, setting=64):
     total = rise + hold + setting
     for t in range(total):
         if t == when or (t > rise and met.life <= 0
-                         and random.getrandbits(7) == 0):
+                         and random.getrandbits(6) == 0):
             met.start()
         if t < rise:
             k = (n * (t + 1)) // rise
