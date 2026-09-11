@@ -89,7 +89,7 @@ def fade_out(oled, delay=38):
 
 def _flame(oled, cx, base, t):
     """A teardrop that never sits still. Height and lean wander per frame."""
-    h = 11 + (t % 3) + random.getrandbits(2)
+    h = 14 + (t % 3) + random.getrandbits(2)
     lean = random.getrandbits(1) - random.getrandbits(1)
     for i in range(h):
         y = base - i
@@ -117,13 +117,18 @@ class Sparks:
             8 + random.getrandbits(4),                   # life
         ]
 
-    def step(self, oled, drift=1):
+    def step(self, oled, drift=1, respawn=True):
+        """respawn=False lets the embers die out instead of feeding back in
+        from the bottom -- during the blow-out that would read as the fire
+        still burning."""
         for s in self.p:
             s[1] += s[2]
             if drift:
                 s[0] += random.getrandbits(1) - random.getrandbits(1)
             s[3] -= 1
             if s[3] <= 0 or s[1] < 0:
+                if not respawn:
+                    continue
                 s[:] = self._new()
             if 0 <= s[0] < W and 0 <= s[1] < H:
                 oled.pixel(s[0], s[1], 1)
@@ -150,14 +155,17 @@ def wishing(oled, sparks, t, prompt="make a wish"):
 def blow_out(oled, sparks):
     """Act II ends: flame gone, embers scatter, smoke climbs and thins."""
     sparks.burst(W // 2, 50)
-    for t in range(26):
+    for t in range(44):
         oled.fill(0)
-        sparks.step(oled, drift=1)
-        # smoke: a sine-ish ribbon rising from the dead wick
-        for i in range(min(t * 2, 44)):
+        sparks.step(oled, drift=1, respawn=False)
+        # smoke: a sine-ish ribbon rising from the dead wick. head is the
+        # top of the column, and only the last TAIL rows are drawn, so the
+        # bottom thins out behind it as it climbs.
+        head = (t * 3) // 2
+        for i in range(min(head, 44)):
             y = 52 - i
             x = W // 2 + int(3 * (1 if (i // 5) % 2 else -1) * (i / 44.0))
-            if t * 2 - i < 18:
+            if head - i < 20:
                 oled.pixel(x, y, 1)
         oled.show()
         time.sleep_ms(45)
