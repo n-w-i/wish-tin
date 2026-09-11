@@ -30,8 +30,9 @@ def wrap(text, cols=COLS):
     return out
 
 
-def block(oled, text, hold=0, clear=True):
-    """Draw a centred block of text."""
+def block(oled, text, hold=0, clear=True, show=True):
+    """Draw a centred block of text. show=False leaves it in the buffer
+    unsent, which is how fade_in gets something to dissolve up to."""
     lines = wrap(text)[:ROWS]
     if clear:
         oled.fill(0)
@@ -39,24 +40,51 @@ def block(oled, text, hold=0, clear=True):
     for i, ln in enumerate(lines):
         x = (W - len(ln) * 8) // 2
         oled.text(ln, max(x, 0), y0 + i * 8, 1)
-    oled.show()
+    if show:
+        oled.show()
     if hold:
         time.sleep_ms(hold)
 
 
-def fade_in(oled, step=8, delay=18):
-    for c in range(0, 256, step):
-        oled.contrast(c)
-        time.sleep_ms(delay)
+# Ordered 4x4 Bayer dither. On a 1-bit panel this reads as a dissolve, and it
+# has far more range than the contrast register -- these modules barely dim,
+# so a brightness ramp is close to invisible. Dispersing suits the tin better
+# than dimming anyway.
+_BAYER = ((0, 8, 2, 10), (12, 4, 14, 6), (3, 11, 1, 9), (15, 7, 13, 5))
+_MASKS = tuple(
+    bytes(sum(1 << i for i in range(8) if _BAYER[i % 4][x] < L) for x in range(4))
+    for L in range(17)
+)
 
 
-def fade_out(oled, step=8, delay=18):
-    for c in range(255, -1, -step):
-        oled.contrast(max(c, 0))
+def _dissolve(oled, levels, delay):
+    """Mask the live buffer against a dither at each level. Width is 128, a
+    multiple of 4, so the byte's column is just i & 3."""
+    orig = bytearray(oled.buffer)
+    buf = oled.buffer
+    n = len(buf)
+    for L in levels:
+        m = _MASKS[L]
+        for i in range(n):
+            buf[i] = orig[i] & m[i & 3]
+        oled.show()
         time.sleep_ms(delay)
+    return orig
+
+
+def fade_in(oled, delay=38):
+    """Dissolve up to whatever block() left in the buffer."""
+    orig = _dissolve(oled, range(17), delay)
+    buf = oled.buffer
+    for i in range(len(buf)):
+        buf[i] = orig[i]
+    oled.show()
+
+
+def fade_out(oled, delay=38):
+    _dissolve(oled, range(16, -1, -1), delay)
     oled.fill(0)
     oled.show()
-    oled.contrast(255)
 
 
 def _flame(oled, cx, base, t):

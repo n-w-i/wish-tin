@@ -18,6 +18,8 @@ PIN_BEGIN, PIN_BLOWN = 2, 3
 # XIAO RP2040:   PIN_SDA, PIN_SCL = 6, 7 ; PIN_BEGIN, PIN_BLOWN = 27, 28
 
 WISH_TIMEOUT_MS = 150000        # if you never press "blown", end kindly anyway
+QUOTE_HOLD_MS = 9000            # Act I, how long the opening line stays up
+CLOSING_HOLD_MS = 8000          # Act III, same for the closing line
 
 
 class Button:
@@ -62,10 +64,9 @@ def ceremony(oled, begin, blown):
     sparks = scenes.Sparks()
 
     # Act I -- the quote.
-    oled.contrast(0)
-    scenes.block(oled, quotes.opening())
+    scenes.block(oled, quotes.opening(), show=False)
     scenes.fade_in(oled)
-    time.sleep_ms(6500)
+    time.sleep_ms(QUOTE_HOLD_MS)
     scenes.fade_out(oled)
 
     # Act II -- light it, wish, blow it out.
@@ -85,10 +86,9 @@ def ceremony(oled, begin, blown):
     time.sleep_ms(500)
 
     # Act III -- the receipt.
-    oled.contrast(0)
-    scenes.block(oled, quotes.closing())
+    scenes.block(oled, quotes.closing(), show=False)
     scenes.fade_in(oled)
-    time.sleep_ms(6000)
+    time.sleep_ms(CLOSING_HOLD_MS)
     scenes.fade_out(oled)
 
 
