@@ -171,20 +171,21 @@ def blow_out(oled, sparks):
         time.sleep_ms(45)
 
 class Meteor:
-    """A streak crossing the sky. Mostly it isn't there -- something you
-    catch every few seconds isn't a shooting star, it's traffic."""
+    """A streak crossing the sky. Position is tracked in half-pixels so it
+    can travel slower than one pixel a frame -- integers have no gear below
+    that, and at full speed it crosses before you've looked up."""
 
     def __init__(self):
         self.life = 0
 
     def start(self):
-        self.x = random.getrandbits(7)
-        self.y = random.getrandbits(4)
-        self.vx = 2 + random.getrandbits(1)
+        self.x = random.getrandbits(8)         # half-pixels: 0..255
+        self.y = random.getrandbits(5)         # starts high
+        self.vx = 2 + random.getrandbits(1)    # 1.0 or 1.5 px per frame
         if random.getrandbits(1):
             self.vx = -self.vx
-        self.vy = 1
-        self.life = 18 + random.getrandbits(4)
+        self.vy = 1                            # 0.5 px per frame
+        self.life = 40 + random.getrandbits(4)
 
     def step(self, oled):
         if self.life <= 0:
@@ -192,19 +193,19 @@ class Meteor:
         self.x += self.vx
         self.y += self.vy
         self.life -= 1
-        if not (0 <= self.x < W) or self.y >= H:
+        if not (0 <= (self.x >> 1) < W) or (self.y >> 1) >= H:
             self.life = 0
             return
-        # head, then a tail that breaks up behind it
+        # head, then a tail tracing where it has just been
         for i in range(6):
             if i > 2 and (i + self.life) & 1:
                 continue
-            x = self.x - self.vx * i
-            y = self.y - self.vy * i
+            x = (self.x - self.vx * i) >> 1
+            y = (self.y - self.vy * i) >> 1
             if 0 <= x < W and 0 <= y < H:
                 oled.pixel(x, y, 1)
                 if i == 0 and y > 0:
-                    oled.pixel(x, y - 1, 1)      # head reads brighter
+                    oled.pixel(x, y - 1, 1)    # head reads brighter
 
 
 class Sky:
@@ -233,7 +234,7 @@ class Sky:
         oled.show()
 
 
-def starfield(oled, n=70, rise=40, hold=36, setting=64):
+def starfield(oled, n=70, rise=52, hold=36, setting=64):
     """Act IV. A sea of stars arrives, breathes, and goes out. Ends on an
     empty screen, which the idle Sky then quietly repopulates."""
     xs = bytearray(n)
@@ -249,8 +250,7 @@ def starfield(oled, n=70, rise=40, hold=36, setting=64):
 
     total = rise + hold + setting
     for t in range(total):
-        if t == when or (t > rise and met.life <= 0
-                         and random.getrandbits(6) == 0):
+        if t == when:
             met.start()
         if t < rise:
             k = (n * (t + 1)) // rise
