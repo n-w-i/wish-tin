@@ -3,6 +3,9 @@
 Written 10 September 2026. Everything here is *why*, not just *what* — the
 wiring is easy to rediscover, the reasoning isn't.
 
+**Status: working end to end on hardware, 11 September 2026.** Flashed,
+wired, soldered, and run through all three acts on the real panel.
+
 ---
 
 ## What we're building
