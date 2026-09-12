@@ -73,12 +73,55 @@ def _dissolve(oled, levels, delay):
     return orig
 
 
-def reveal(oled, text, per_word=380):
-    """Words arrive one at a time, each in its final position. Nothing
-    reflows, so it reads as writing rather than redrawing -- and it is
-    obviously moving on its own, so nobody reaches for the button."""
+# A layer is a full-screen buffer holding one element on its own, so it can
+# dissolve in or out without disturbing anything else on screen. This is what
+# lets the candle stay lit while the words around it come and go.
+_TMP = bytearray(W * H // 8)
+_TMPFB = framebuf.FrameBuffer(_TMP, W, H, framebuf.MONO_VLSB)
+
+_IN = (3, 7, 11, 14, 16)
+_OUT = (14, 11, 7, 3, 0)
+
+
+def layer(draw, *args):
+    """Render a drawing function into a buffer of its own."""
+    _TMPFB.fill(0)
+    draw(_TMPFB, *args)
+    return bytearray(_TMP)
+
+
+def _composite(oled, base, over, levels, delay):
+    buf = oled.buffer
+    n = len(buf)
+    for L in levels:
+        m = _MASKS[L]
+        for i in range(n):
+            buf[i] = base[i] | (over[i] & m[i & 3])
+        oled.show()
+        time.sleep_ms(delay)
+
+
+def layer_in(oled, base, over, delay=18):
+    """Dissolve `over` in on top of `base`."""
+    _composite(oled, base, over, _IN, delay)
+
+
+def layer_out(oled, base, over, delay=18):
+    """Dissolve `over` away, leaving `base` behind."""
+    _composite(oled, base, over, _OUT, delay)
+
+
+def _word(fb, w, x, y):
+    fb.text(w, x, y, 1)
+
+
+def reveal(oled, text, delay=18, gap=40):
+    """Words arrive one at a time, each dissolving in rather than snapping on,
+    and each landing in its final position so nothing reflows.
+    Returns the finished image as a layer, for dissolving out later."""
     lines = wrap(text)[:ROWS]
     y0 = (H - len(lines) * 8) // 2
+    solid = bytearray(len(oled.buffer))
     oled.fill(0)
     oled.show()
     for li, ln in enumerate(lines):
@@ -86,29 +129,17 @@ def reveal(oled, text, per_word=380):
         col = 0
         for w in ln.split(" "):
             if w:
-                oled.text(w, x0 + col * 8, y0 + li * 8, 1)
-                oled.show()
-                time.sleep_ms(per_word)
+                word = layer(_word, w, x0 + col * 8, y0 + li * 8)
+                _composite(oled, solid, word, _IN, delay)
+                for i in range(len(solid)):
+                    solid[i] |= word[i]
+                time.sleep_ms(gap)
             col += len(w) + 1
+    return solid
 
 
-# One page-aligned row of text, drawn through the dither so it can dissolve
-# on its own without disturbing the rest of the frame.
-_TXT = bytearray(W)
-_TXTFB = framebuf.FrameBuffer(_TXT, W, 8, framebuf.MONO_VLSB)
-
-
-def dither_text(oled, s, page, level):
-    if level <= 0:
-        return
-    for i in range(W):
-        _TXT[i] = 0
-    _TXTFB.text(s, max((W - len(s) * 8) // 2, 0), 0, 1)
-    m = _MASKS[level]
-    buf = oled.buffer
-    off = page * W
-    for i in range(W):
-        buf[off + i] |= _TXT[i] & m[i & 3]
+def caption(fb, s, y=8):
+    fb.text(s, max((W - len(s) * 8) // 2, 0), y, 1)
 
 
 def fade_in(oled, delay=38):
@@ -126,18 +157,24 @@ def fade_out(oled, delay=38):
     oled.show()
 
 
-def candle(oled, cx=W // 2, base=54, lit=False, t=0):
-    """The candle itself. Drawn unlit on the light-it screen and lit during
-    the wish, at the same coordinates, so one becomes the other."""
-    oled.hline(cx - 5, base + 4, 11, 1)     # top of the candle
-    oled.vline(cx, base + 1, 3, 1)          # wick
+def candle(oled, cx=W // 2, base=47, lit=False, t=0, grow=16):
+    """The candle itself, at the same coordinates lit or unlit, so the one
+    on the light-it screen is the one that catches."""
+    top = base + 5
+    oled.fill_rect(cx - 3, top, 7, H - top, 1)   # body, off the bottom edge
+    oled.vline(cx, base + 1, 4, 1)               # wick
     if lit:
-        _flame(oled, cx, base, t)
+        _flame(oled, cx, base, t, grow)
 
 
-def _flame(oled, cx, base, t):
-    """A teardrop that never sits still. Height and lean wander per frame."""
+def _flame(oled, cx, base, t, grow=16):
+    """A teardrop that never sits still. Height and lean wander per frame.
+    grow < 16 scales it down, so the flame climbs as the wick catches."""
     h = 14 + (t % 3) + random.getrandbits(2)
+    if grow < 16:
+        h = (h * grow) // 16
+        if h < 2:
+            h = 2
     lean = random.getrandbits(1) - random.getrandbits(1)
     for i in range(h):
         y = base - i
@@ -188,34 +225,29 @@ class Sparks:
             s[3] = 14 + random.getrandbits(4)
 
 
-PROMPT_HOLD = 70                          # frames, ~3.9s at 55ms
-
-
 def wishing(oled, sparks, t, prompt="make a wish"):
-    """Act II: the flame is lit and burning. One frame.
-    The prompt holds, then dissolves away and does not return -- after a few
-    seconds you are already wishing and the instruction is in the way."""
+    """Act II: the flame is lit and burning. One frame. The prompt stays up
+    for the whole wish; the flame climbs over the first second as it catches."""
     oled.fill(0)
     sparks.step(oled)
-    candle(oled, lit=True, t=t)
-    if t < PROMPT_HOLD + 17:
-        dither_text(oled, prompt, 1,
-                    16 if t < PROMPT_HOLD else 16 - (t - PROMPT_HOLD))
+    candle(oled, lit=True, t=t, grow=min(16, 2 + t))
+    caption(oled, prompt)
     oled.show()
 
 
 def blow_out(oled, sparks):
     """Act II ends: flame gone, embers scatter, smoke climbs and thins."""
-    sparks.burst(W // 2, 50)
+    sparks.burst(W // 2, 46)
     for t in range(44):
         oled.fill(0)
         sparks.step(oled, drift=1, respawn=False)
+        candle(oled)                       # still there, just out
         # smoke: a sine-ish ribbon rising from the dead wick. head is the
         # top of the column, and only the last TAIL rows are drawn, so the
         # bottom thins out behind it as it climbs.
         head = (t * 3) // 2
         for i in range(min(head, 44)):
-            y = 52 - i
+            y = 47 - i
             x = W // 2 + int(3 * (1 if (i // 5) % 2 else -1) * (i / 44.0))
             if head - i < 20:
                 oled.pixel(x, y, 1)

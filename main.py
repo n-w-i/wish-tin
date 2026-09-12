@@ -28,7 +28,7 @@ PIN_BUTTON, PIN_BUTTON_GND = 2, 1  # D1 + D0   (left side, 2nd and 1st down)
 # second press entirely.
 
 WISH_TIMEOUT_MS = 150000        # if you never press "blown", end kindly anyway
-QUOTE_HOLD_MS = 7000            # Act I, hold AFTER the words finish arriving
+QUOTE_HOLD_MS = 3500            # Act I, hold AFTER the words finish arriving
 CLOSING_HOLD_MS = 8000          # Act III, same for the closing line
 MIN_WISH_MS = 2500              # you cannot blow out a candle you just lit
 LIGHT_TIMEOUT_MS = 180000       # if the candle never gets lit, quietly give up
@@ -75,28 +75,32 @@ def wait_for(btn, oled):
 def ceremony(oled, btn):
     sparks = scenes.Sparks()
 
-    # Act I -- the quote.
+    # Act I -- the words arrive, one at a time.
     scenes.reveal(oled, quotes.opening())
     time.sleep_ms(QUOTE_HOLD_MS)
     scenes.fade_out(oled)
 
-    # Act II -- light it, wish, blow it out.
-    scenes.reveal(oled, "light it")
-    time.sleep_ms(500)
-    scenes.candle(oled)                # unlit: a wick, waiting
-    oled.show()
-    btn.pressed()                      # swallow the edge that began Act I
+    # Act II -- an unlit candle, then the wish.
+    words = scenes.reveal(oled, "light it")
+    time.sleep_ms(250)
+    cand = scenes.layer(scenes.candle)
+    scenes.layer_in(oled, words, cand)          # the candle arrives, unlit
+
+    btn.pressed()                               # swallow the edge from Act I
     waited = time.ticks_ms()
-    while not btn.pressed():           # hold here until the candle is lit
+    while not btn.pressed():                    # hold until the candle is lit
         if time.ticks_diff(time.ticks_ms(), waited) > LIGHT_TIMEOUT_MS:
-            scenes.fade_out(oled)      # never mind -- back to idle
+            scenes.fade_out(oled)               # never mind -- back to idle
             return
         time.sleep_ms(20)
-    scenes.fade_out(oled)
+
+    scenes.layer_out(oled, cand, words)         # the words go, the candle stays
+    prompt = scenes.layer(scenes.caption, "make a wish")
+    scenes.layer_in(oled, cand, prompt)         # and the prompt arrives
 
     t = 0
     start = time.ticks_ms()
-    btn.pressed()                      # swallow the "it is lit" press
+    btn.pressed()                               # swallow the "it is lit" press
     while True:
         held = time.ticks_diff(time.ticks_ms(), start)
         if held > MIN_WISH_MS and btn.pressed():
@@ -107,8 +111,14 @@ def ceremony(oled, btn):
         time.sleep_ms(55)
         t += 1
 
+    scenes.layer_out(oled, cand, prompt)        # prompt goes, candle stays
     scenes.blow_out(oled, sparks)
-    time.sleep_ms(500)
+
+    oled.fill(0)                                # the candle alone, out
+    scenes.candle(oled)
+    oled.show()
+    time.sleep_ms(700)
+    scenes.fade_out(oled)
 
     # Act III -- the receipt.
     scenes.block(oled, quotes.closing(), show=False)
