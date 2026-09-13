@@ -26,8 +26,8 @@ wishes/
 `log.md` entries:
 
 ```markdown
-## 2026-09-12  21:41
-51.5503, -0.1409
+## 2026-09-12  21:41   <!-- sample entry; coordinates are Greenwich, not a real log -->
+51.4780, -0.0015
 
 ![](2026-09-12-2141.jpg)
 ```

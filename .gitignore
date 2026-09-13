@@ -8,3 +8,6 @@ secrets.py
 __pycache__/
 *.pyc
 .DS_Store
+
+# Build photos and video - large media, published via the website repo instead.
+photos/
